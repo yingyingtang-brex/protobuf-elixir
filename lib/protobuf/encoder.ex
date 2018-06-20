@@ -5,7 +5,7 @@ defmodule Protobuf.Encoder do
   alias Protobuf.{MessageProps, FieldProps}
 
   @spec encode(struct, keyword) :: iodata
-  def encode(%{__struct__: mod} = struct, opts \\ []) do
+  def encode(%mod{} = struct, opts \\ []) do
     res = encode!(struct, mod.__message_props__(), [])
     res = Enum.reverse(res)
 
@@ -16,33 +16,23 @@ defmodule Protobuf.Encoder do
   end
 
   @spec encode!(struct, MessageProps.t(), iodata) :: iodata
-  def encode!(struct, props, acc0) do
-    syntax = props.syntax
+  def encode!(struct, %{field_props: field_props} = props, acc0) do
     oneofs = oneof_actual_vals(props, struct)
 
     Enum.reduce(props.ordered_tags, acc0, fn tag, acc ->
       try do
-        prop = props.field_props[tag]
-        val = Map.get(struct, prop.name_atom)
-        val = if prop.oneof, do: oneofs[prop.name_atom], else: val
+        prop = field_props[tag]
+        val = if prop.oneof, do: oneofs[prop.name_atom], else: Map.get(struct, prop.name_atom)
 
-        cond do
-          prop.oneof && val != nil ->
-            [encode_field(class_field(prop), val, prop) | acc]
-
-          syntax == :proto2 && ((val == nil && prop.optional?) || val == [] || val == %{}) ->
-            acc
-
-          syntax == :proto3 && empty_val?(val) ->
-            acc
-
-          true ->
-            [encode_field(class_field(prop), val, prop) | acc]
+        if prop.empty_fn.(val) do
+          acc
+        else
+          [encode_field(class_field(prop), val, prop) | acc]
         end
       rescue
         error ->
           stacktrace = System.stacktrace()
-          prop = props.field_props[tag]
+          prop = field_props[tag]
 
           msg =
             "Got error when encoding #{inspect(struct.__struct__)}##{prop.name_atom}: #{
@@ -53,6 +43,42 @@ defmodule Protobuf.Encoder do
       end
     end)
   end
+
+  def empty_func(_, _, %{repeated?: true}), do: &__MODULE__.empty_list?/1
+  def empty_func(_, _, %{map?: true}), do: &__MODULE__.empty_map?/1
+  def empty_func(_, :proto2, %{optional?: true}), do: &__MODULE__.empty_other?/1
+  def empty_func(_, :proto2, _), do: &__MODULE__.empty_false?/1
+  def empty_func(:bool, :proto3, _), do: &__MODULE__.empty_bool?/1
+  def empty_func(:bytes, :proto3, _), do: &__MODULE__.empty_bytes?/1
+  def empty_func(:string, :proto3, _), do: &__MODULE__.empty_bytes?/1
+
+  def empty_func(type, :proto3, _)
+      when type in [
+             :int32,
+             :int64,
+             :uint32,
+             :uint64,
+             :sint32,
+             :sint64,
+             :fixed32,
+             :fixed64,
+             :sfixed32,
+             :sfixed64,
+             :float,
+             :double,
+             :enum
+           ],
+      do: &__MODULE__.empty_number?/1
+
+  def empty_func(_, :proto3, _), do: &__MODULE__.empty_other?/1
+
+  def empty_list?(val), do: val == []
+  def empty_map?(val), do: val == %{}
+  def empty_number?(val), do: val == 0
+  def empty_bytes?(val), do: val == <<>>
+  def empty_other?(val), do: val == nil
+  def empty_false?(_), do: false
+  def empty_bool?(val), do: val == false
 
   @spec encode_field(atom, any, FieldProps.t()) :: iodata
   def encode_field(:normal, val, %{type: type, encoded_fnum: fnum} = prop) do
@@ -68,14 +94,14 @@ defmodule Protobuf.Encoder do
       v = if prop.map?, do: struct(prop.type, %{key: elem(v, 0), value: elem(v, 1)}), else: v
       encoded = encode(v, iolist: true)
       byte_size = IO.iodata_length(encoded)
-      [fnum, [encode_varint(byte_size), encoded]]
+      [fnum, encode_varint(byte_size), encoded]
     end)
   end
 
   def encode_field(:packed, val, %{type: type, encoded_fnum: fnum}) do
     encoded = Enum.map(val, fn v -> encode_type(type, v) end)
     byte_size = IO.iodata_length(encoded)
-    [fnum, [encode_varint(byte_size), encoded]]
+    [fnum, encode_varint(byte_size), encoded]
   end
 
   @spec class_field(map) :: atom
@@ -164,10 +190,6 @@ defmodule Protobuf.Encoder do
     else
       func.(val)
     end
-  end
-
-  defp empty_val?(v) do
-    !v || v == 0 || v == "" || v == [] || v == %{}
   end
 
   defp oneof_actual_vals(msg_props, struct) do

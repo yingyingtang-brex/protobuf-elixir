@@ -32,5 +32,6 @@ defmodule Protobuf.FieldProps do
             embedded?: false,
             packed?: false,
             map?: false,
-            encoded_fnum: nil
+            encoded_fnum: nil,
+            empty_fn: nil
 end
