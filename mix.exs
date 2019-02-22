@@ -13,6 +13,8 @@ defmodule Protobuf.Mixfile do
       deps: deps(),
       escript: escript(),
       description: description(),
+      compilers: [:rustler] ++ Mix.compilers,
+      rustler_crates: rustler_crates(),
       package: package()
     ]
   end
@@ -24,6 +26,7 @@ defmodule Protobuf.Mixfile do
       {:dialyxir, "~> 0.5", only: [:dev, :test], runtime: false},
       {:credo, "~> 0.8", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.14", only: :dev, runtime: false},
+      {:rustler, "~> 0.19.0", optional: true},
       {:eqc_ex, "~> 1.4", only: [:dev, :test]}
     ]
   end
@@ -44,5 +47,12 @@ defmodule Protobuf.Mixfile do
       files:
         ~w(mix.exs README.md lib/google lib/protobuf lib/protobuf.ex src config LICENSE priv/templates .formatter.exs)
     ]
+  end
+
+  defp rustler_crates do
+    [protobuf_rustnif: [
+      path: "native/protobuf_rustnif",
+      mode: (if Mix.env == :prod, do: :release, else: :debug),
+    ]]
   end
 end
