@@ -14,6 +14,7 @@ defmodule Protobuf.Decoder do
   end
 
   def decode(data, module) do
+    kvs = Protobuf.RustNif.parse_bin(data, [])
     kvs = raw_decode_key(data, [])
     %{repeated_fields: repeated_fields} = msg_props = module.__message_props__()
     struct = build_struct(kvs, msg_props, module.new())
@@ -25,6 +26,7 @@ defmodule Protobuf.Decoder do
     raw_decode_key(data, [])
   end
 
+  # def build_struct([{tag, wire, val} | rest], %{field_props: f_props} = msg_props, struct) do
   def build_struct([tag, wire, val | rest], %{field_props: f_props} = msg_props, struct) do
     case f_props do
       %{^tag => %{wire_type: ^wire, repeated?: is_repeated, map?: is_map, type: type, oneof: oneof, name_atom: name_atom, embedded?: embedded} = prop} ->
@@ -56,6 +58,7 @@ defmodule Protobuf.Decoder do
             :bytes -> val
             :int64 ->
               <<n::signed-integer-64>> = <<val::64>>
+              n
             :uint32 -> val
             :uint64 -> val
             :bool -> val != 0

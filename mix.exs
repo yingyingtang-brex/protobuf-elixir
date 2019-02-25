@@ -52,7 +52,8 @@ defmodule Protobuf.Mixfile do
   defp rustler_crates do
     [protobuf_rustnif: [
       path: "native/protobuf_rustnif",
-      mode: (if Mix.env == :prod, do: :release, else: :debug),
+      # mode: (if Mix.env == :prod, do: :release, else: :debug),
+      mode: :release,
     ]]
   end
 end
