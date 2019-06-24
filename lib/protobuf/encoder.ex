@@ -3,6 +3,7 @@ defmodule Protobuf.Encoder do
   import Bitwise, only: [bsr: 2, band: 2, bsl: 2, bor: 2]
 
   alias Protobuf.{MessageProps, FieldProps}
+  require Logger
 
   @spec encode(atom, struct, keyword) :: iodata
   def encode(mod, struct, opts) do
@@ -31,13 +32,16 @@ defmodule Protobuf.Encoder do
 
     encode_fields(Map.values(field_props), syntax, struct, oneofs, [])
     |> Enum.reverse()
+  catch
+    {e, msg, st} ->
+      reraise e, msg, st
   end
 
   def encode_fields([], _, _, _, acc) do
     acc
   end
   def encode_fields([prop|tail], syntax, struct, oneofs, acc) do
-    %{name_atom: name, oneof: oneof, enum?: is_enum, type: type} = prop
+    %{name_atom: name, oneof: oneof, enum?: is_enum, type: type, encode_func: encode_func, repeated?: is_repeated, encoded_fnum: encoded_fnum, skip_func: skip_func} = prop
 
     val =
       if oneof do
@@ -54,8 +58,22 @@ defmodule Protobuf.Encoder do
     if skip_field?(syntax, val, prop) || (is_enum && is_enum_default(type, val)) do
       encode_fields(tail, syntax, struct, oneofs, acc)
     else
-      acc = [encode_field(class_field(prop), val, prop) | acc]
-      encode_fields(tail, syntax, struct, oneofs, acc)
+      if encode_func do
+        acc = if Function.info(encode_func, :arity) == {:arity, 2} do
+          [encode_func.(val, prop) | acc]
+        else
+          if is_repeated do
+            [Enum.map(val, fn v -> [encoded_fnum, encode_func.(v)] end) | acc]
+          else
+            [[encoded_fnum, encode_func.(val)] | acc]
+          end
+        end
+        encode_fields(tail, syntax, struct, oneofs, acc)
+      # Deprecated
+      else
+        acc = [encode_field(class_field(prop), val, prop) | acc]
+        encode_fields(tail, syntax, struct, oneofs, acc)
+      end
     end
   rescue
     error ->
@@ -66,7 +84,168 @@ defmodule Protobuf.Encoder do
           inspect(error)
         }"
 
-      reraise Protobuf.EncodeError, [message: msg], stacktrace
+      throw {Protobuf.EncodeError, [message: msg], stacktrace}
+  end
+
+  def cal_encode_func(%{wire_type: wire_delimited(), embedded?: true, map?: true}) do
+    &Protobuf.Encoder.encode_map/2
+  end
+  def cal_encode_func(%{wire_type: wire_delimited(), embedded?: true}) do
+    &Protobuf.Encoder.encode_embedded/2
+  end
+  def cal_encode_func(%{repeated?: true, packed?: true}) do
+    &Protobuf.Encoder.encode_packed/2
+  end
+  def cal_encode_func(%{type: type}) do
+    case type do
+      t when t in [:int32, :int64, :uint32, :uint64] ->
+        &Protobuf.Encoder.encode_varint/1
+      t when t in [:sint32, :sint64] ->
+        &Protobuf.Encoder.encode_type_zigzag/1
+      :bool ->
+        &Protobuf.Encoder.encode_type_bool/1
+      :string ->
+        &Protobuf.Encoder.encode_type_bytes/1
+      :bytes ->
+        &Protobuf.Encoder.encode_type_bytes/1
+      # TODO
+      {:enum, _} ->
+        &Protobuf.Encoder.encode_type_enum/2
+      :fixed64 ->
+        &Protobuf.Encoder.encode_type_fixed64/1
+      :sfixed64 ->
+        &Protobuf.Encoder.encode_type_sfixed64/1
+      :double ->
+        &Protobuf.Encoder.encode_type_double/1
+      :float ->
+        &Protobuf.Encoder.encode_type_float/1
+      :fixed32 ->
+        &Protobuf.Encoder.encode_type_fixed32/1
+      :sfixed32 ->
+        &Protobuf.Encoder.encode_type_sfixed32/1
+      _ ->
+        nil
+    end
+  end
+
+  def encode_type_varint(v, _) do
+    encode_varint(v)
+  end
+
+  def encode_type_bytes(v) do
+    bin = IO.iodata_to_binary(v)
+    len = bin |> byte_size |> encode_varint
+    <<len::binary, bin::binary>>
+  end
+
+  def encode_type_zigzag(v) do
+    v |> encode_zigzag |> encode_varint
+  end
+
+  def encode_type_bool(true), do: <<1>>
+  def encode_type_bool(false), do: <<0>>
+  def encode_type_fixed64(v), do: <<v::64-little>>
+  def encode_type_sfixed64(v), do: <<v::64-signed-little>>
+  def encode_type_double(v), do: <<v::64-float-little>>
+  def encode_type_float(v), do: <<v::32-float-little>>
+  def encode_type_fixed32(v), do: <<v::32-little>>
+  def encode_type_sfixed32(v), do: <<v::32-signed-little>>
+
+  def encode_type_enum(val, %{type: {:enum, type}, repeated?: is_repeated, encoded_fnum: fnum}) when is_atom(val) do
+    if is_repeated do
+      Enum.map(val, fn v ->
+        encoded = v |> type.value() |> encode_varint()
+        [fnum, encoded]
+      end)
+    else
+      encoded = val |> type.value() |> encode_varint()
+      [fnum, encoded]
+    end
+  end
+  def encode_type_enum(v, %{repeated?: is_repeated, encoded_fnum: fnum}) do
+    if is_repeated do
+      Enum.map(v, fn v -> [fnum, encode_varint(v)] end)
+    else
+      [fnum, encode_varint(v)]
+    end
+  end
+
+  def encode_embedded(val, %{type: type, encoded_fnum: fnum, repeated?: is_repeated}) do
+    if is_repeated do
+      Enum.map(val, fn v ->
+        # so that oneof {:atom, v} can be encoded
+        encoded = encode(type, v, [])
+        byte_size = byte_size(encoded)
+        [fnum, encode_varint(byte_size), encoded]
+      end)
+    else
+      # so that oneof {:atom, v} can be encoded
+      encoded = encode(type, val, [])
+      byte_size = byte_size(encoded)
+      [fnum, encode_varint(byte_size), encoded]
+    end
+  end
+
+  def encode_map(val, %{type: type, encoded_fnum: fnum}) do
+    Enum.map(val, fn v ->
+      v = struct(type, %{key: elem(v, 0), value: elem(v, 1)})
+      # so that oneof {:atom, v} can be encoded
+      encoded = encode(type, v, [])
+      byte_size = byte_size(encoded)
+      [fnum, encode_varint(byte_size), encoded]
+    end)
+  end
+
+  def encode_packed(val, %{type: type, encoded_fnum: fnum}) do
+    encoded = Enum.map(val, fn v -> encode_type(type, v) end)
+    |> IO.iodata_to_binary()
+    byte_size = byte_size(encoded)
+    [fnum, encode_varint(byte_size), encoded]
+  end
+# (is_enum && is_enum_default(type, val))
+  def cal_skip_func(%{repeated?: true}, _) do
+    &Protobuf.Encoder.skip_list/2
+  end
+  def cal_skip_func(%{map?: true}, _) do
+    &Protobuf.Encoder.skip_map/2
+  end
+  def cal_skip_func(%{optional?: true}, :proto2) do
+    &Protobuf.Encoder.skip_nil/2
+  end
+  def cal_skip_func(%{embedded?: true}, :proto3) do
+    &Protobuf.Encoder.skip_nil/2
+  end
+  def cal_skip_func(%{type: type, oneof: nil}, :proto3) do
+    case type do
+      t when t in [:int32, :int64, :uint32, :uint64, :sint32, :sint64, :fixed32, :fixed64, :sfixed32, :sfixed64, :float, :double] ->
+        &Protobuf.Encoder.skip_number/2
+      :bool ->
+        &Protobuf.Encoder.skip_bool/2
+      t when t in [:string, :bytes] ->
+        &Protobuf.Encoder.skip_bytes/2
+      # TODO
+      {:enum, _} ->
+        &Protobuf.Encoder.skip_enum/2
+      _ ->
+        nil
+    end
+  end
+  def cal_skip_func(_, _) do
+    nil
+  end
+
+  def skip_list(val, _), do: val == []
+  def skip_map(val, _), do: val == %{}
+  def skip_nil(val, _), do: val == nil
+  def skip_number(val, _), do: val == 0
+  def skip_bytes(val, _), do: val == ""
+  def skip_bool(val, _), do: val == false
+
+  def skip_enum(val, %{type: {:enum, type}}) when is_atom(val) do
+    type.value(val) == 0
+  end
+  def skip_enum(val, _) do
+    val == 0
   end
 
   @doc false

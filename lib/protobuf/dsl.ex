@@ -157,6 +157,8 @@ defmodule Protobuf.DSL do
 
     struct(props, parts)
     |> cal_encoded_fnum()
+    |> cal_encode_func()
+    |> cal_skip_func(syntax)
   end
 
   defp parse_field_opts([{:optional, true} | t], acc) do
@@ -267,6 +269,16 @@ defmodule Protobuf.DSL do
 
   defp cal_encoded_fnum(props) do
     props
+  end
+
+  defp cal_encode_func(props) do
+    encode_func = Protobuf.Encoder.cal_encode_func(props)
+    Map.put(props, :encode_func, encode_func)
+  end
+
+  defp cal_skip_func(props, syntax) do
+    skip_func = Protobuf.Encoder.cal_skip_func(props, syntax)
+    Map.put(props, :skip_func, skip_func)
   end
 
   def generate_default_fields(syntax, msg_props) do
