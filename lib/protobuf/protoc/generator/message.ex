@@ -188,7 +188,7 @@ defmodule Protobuf.Protoc.Generator.Message do
   end
 
   def get_field(ctx, f, nested_maps, oneofs) do
-    opts = field_options(f, ctx)
+    opts = field_options(ctx, f)
     map = nested_maps[f.type_name]
     opts = if map, do: Map.put(opts, :map, true), else: opts
 
@@ -247,10 +247,9 @@ defmodule Protobuf.Protoc.Generator.Message do
     end)
   end
 
-  defp field_options(f, ctx) do
+  defp field_options(ctx, f) do
     enum? = f.type == :TYPE_ENUM
     default = default_value(f.type, f.default_value)
-
     opts = put_json_name(%{enum: enum?, default: default}, ctx.syntax, f)
 
     merge_field_options(ctx, opts, f)
@@ -308,9 +307,11 @@ defmodule Protobuf.Protoc.Generator.Message do
       |> Google.Protobuf.FieldOptions.get_extension(Brex.Elixirpb.PbExtension, :field)
       |> case do
         nil -> nil
+        [] -> nil
         elixir_field_options ->
           elixir_field_options
           |> Map.from_struct()
+          |> Enum.filter(fn {_k, v} -> not is_nil(v) end)
           |> Enum.into([])
       end
 
