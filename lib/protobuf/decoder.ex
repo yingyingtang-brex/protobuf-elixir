@@ -17,6 +17,13 @@ defmodule Protobuf.Decoder do
     reverse_repeated(struct, repeated_fields)
   end
 
+  def decode_delimited_stream(data, module) do
+    Stream.unfold(data, fn data ->
+      {message_bin, rest} = decode_varint(data, :delimiter)
+      {decode(message_bin, module), rest}
+    end)
+  end
+
   @doc false
   def decode_raw(data) do
     raw_decode_key(data, [])
@@ -142,21 +149,14 @@ defmodule Protobuf.Decoder do
             type: type,
             oneof: oneof,
             name_atom: name_atom,
-            embedded?: embedded,
-            options: options
+            embedded?: embedded
           } = prop
       } ->
         key = if oneof, do: oneof_field(prop, msg_props), else: name_atom
 
         struct =
           if embedded do
-            embedded_msg =
-              if is_nil(options) do
-                decode(val, type)
-              else
-                Protobuf.FieldOptionsProcessor.decode_type(val, type, options)
-              end
-
+            embedded_msg = decode(val, type)
             val = if is_map, do: %{embedded_msg.key => embedded_msg.value}, else: embedded_msg
             val = if oneof, do: {name_atom, val}, else: val
 
@@ -164,12 +164,7 @@ defmodule Protobuf.Decoder do
 
             Map.put(struct, key, val)
           else
-            val = if is_nil(options) do
-                decode_type_m(type, key, val)
-              else
-                Protobuf.FieldOptionsProcessor.decode_type(val, type, options)
-              end
-
+            val = decode_type_m(type, key, val)
             val = if oneof, do: {name_atom, val}, else: val
 
             val =
@@ -349,6 +344,11 @@ defmodule Protobuf.Decoder do
   defp raw_handle_varint(:bytes_len, <<bin::bits>>, result, len) do
     <<bytes::bytes-size(len), rest::bits>> = bin
     raw_decode_key(rest, [bytes | result])
+  end
+
+  defp raw_handle_varint(:delimiter, <<bin::bits>>, result, len) do
+    <<bytes::bytes-size(len), rest::bits>> = bin
+    {bytes, rest}
   end
 
   defp raw_handle_varint(:packed, <<>>, result, val) do
