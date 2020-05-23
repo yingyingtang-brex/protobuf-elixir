@@ -149,14 +149,21 @@ defmodule Protobuf.Decoder do
             type: type,
             oneof: oneof,
             name_atom: name_atom,
-            embedded?: embedded
+            embedded?: embedded,
+            options: options
           } = prop
       } ->
         key = if oneof, do: oneof_field(prop, msg_props), else: name_atom
 
         struct =
           if embedded do
-            embedded_msg = decode(val, type)
+            embedded_msg =
+              if is_nil(options) do
+                decode(val, type)
+              else
+                Protobuf.FieldOptionsProcessor.decode_type(val, type, options)
+              end
+
             val = if is_map, do: %{embedded_msg.key => embedded_msg.value}, else: embedded_msg
             val = if oneof, do: {name_atom, val}, else: val
 
@@ -164,7 +171,12 @@ defmodule Protobuf.Decoder do
 
             Map.put(struct, key, val)
           else
-            val = decode_type_m(type, key, val)
+            val = if is_nil(options) do
+                decode_type_m(type, key, val)
+              else
+                Protobuf.FieldOptionsProcessor.decode_type(val, type, options)
+              end
+
             val = if oneof, do: {name_atom, val}, else: val
 
             val =
