@@ -91,7 +91,9 @@ defmodule Protobuf.Protoc.IntegrationTest do
         color: :TRAFFIC_LIGHT_COLOR_UNSET,
         color_lc: :traffic_light_color_invalid,
         color_depr: :GREEN,
-        color_atom: :red
+        color_atom: :red,
+        color_repeated: [:red, :green],
+        color_repeated_normal: [:TRAFFIC_LIGHT_COLOR_RED, :TRAFFIC_LIGHT_COLOR_GREEN]
       )
 
     assert msg |> Ext.MyMessage.encode() |> Ext.MyMessage.decode() == msg
@@ -108,7 +110,10 @@ defmodule Protobuf.Protoc.IntegrationTest do
         no_extype: %Google.Protobuf.StringValue{value: ""},
         normal1: 0,
         normal2: "",
-        repeated_field: []
+        repeated_field: [],
+        color_repeated: [],
+        color_repeated_normal: [],
+        normal3: []
       )
 
     assert msg |> Ext.MyMessage.encode() |> Ext.MyMessage.decode() == msg
