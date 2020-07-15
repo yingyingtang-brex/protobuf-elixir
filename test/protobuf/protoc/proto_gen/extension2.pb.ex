@@ -37,6 +37,7 @@ defmodule Ext.MyMessage do
   use Protobuf, custom_field_options?: true, syntax: :proto3
 
   @type t :: %__MODULE__{
+          enums_oneof: {atom, any},
           f1: float | nil,
           f2: float | nil,
           f3: integer | nil,
@@ -57,6 +58,7 @@ defmodule Ext.MyMessage do
           color_atom: Ext.TrafficLightColor.t()
         }
   defstruct [
+    :enums_oneof,
     :f1,
     :f2,
     :f3,
@@ -76,6 +78,8 @@ defmodule Ext.MyMessage do
     :color_depr,
     :color_atom
   ]
+
+  oneof :enums_oneof, 0
 
   field :f1, 1, type: Google.Protobuf.DoubleValue, options: [extype: "float"]
   field :f2, 2, type: Google.Protobuf.FloatValue, options: [extype: "float"]
@@ -115,5 +119,33 @@ defmodule Ext.MyMessage do
     type: Ext.TrafficLightColor,
     enum: true,
     json_name: "colorAtom",
+    options: [enum: "atomize"]
+
+  field :color_repeated, 19,
+    repeated: true,
+    type: Ext.TrafficLightColor,
+    enum: true,
+    json_name: "colorRepeated",
+    options: [enum: "atomize"]
+
+  field :color_repeated_normal, 20,
+    repeated: true,
+    type: Ext.TrafficLightColor,
+    enum: true,
+    json_name: "colorRepeatedNormal"
+
+  field :normal3, 21, repeated: true, type: :string
+
+  field :color_oneof, 22,
+    type: Ext.TrafficLightColor,
+    enum: true,
+    json_name: "colorOneof",
+    oneof: 0
+
+  field :color_oneof_atom, 23,
+    type: Ext.TrafficLightColor,
+    enum: true,
+    json_name: "colorOneofAtom",
+    oneof: 0,
     options: [enum: "atomize"]
 end
