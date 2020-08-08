@@ -5,27 +5,46 @@ defmodule Protobuf.VerifierTest do
 
   test "verifies int32s" do
     assert :ok == Verifier.verify(TestMsg.Foo.new(a: 42))
-    assert {:error, err} = Verifier.verify(TestMsg.Foo.new(a: "bar"))
-    assert err =~ ~s("bar" is invalid for type int32)
+    assert :ok == Verifier.verify(TestMsg.Foo.new(a: nil))
+    assert :ok == Verifier.verify(TestMsg.Foo.new(a: -42))
+    assert :ok == Verifier.verify(TestMsg.Foo.new(a: 0))
+    assert {:error, err} = Verifier.verify(TestMsg.Foo.new(a: "candle"))
+    assert err =~ ~s("candle" is invalid for type int32)
     assert {:error, err} = Verifier.verify(TestMsg.Foo.new(a: 111_111_111_111))
     assert err =~ ~s(111111111111 is invalid for type int32)
     assert {:error, err} = Verifier.verify(TestMsg.Foo.new(a: 3.14))
     assert err =~ ~s(3.14 is invalid for type int32)
+    assert {:error, _err} = Verifier.verify(TestMsg.Foo.new(a: false))
+    assert {:error, _err} = Verifier.verify(TestMsg.Foo.new(a: :enum_value))
+    assert {:error, _err} = Verifier.verify(TestMsg.Foo.new(a: TestMsg.Foo))
+    assert {:error, _err} = Verifier.verify(TestMsg.Foo.new(a: TestMsg.Foo.new()))
   end
 
   # TestMsg.Scalars has a bunch of fields with the same name as their types
   test "verifies int64s" do
     assert :ok == Verifier.verify(TestMsg.Scalars.new(int64: -200))
+    assert :ok == Verifier.verify(TestMsg.Scalars.new(int64: 140))
+    assert :ok == Verifier.verify(TestMsg.Scalars.new(int64: 0))
+    assert :ok == Verifier.verify(TestMsg.Scalars.new(int64: 9_223_372_036_854_775_807))
+    assert :ok == Verifier.verify(TestMsg.Scalars.new(int64: nil))
     assert {:error, err} = Verifier.verify(TestMsg.Scalars.new(int64: :test))
     assert err =~ ~s(:test is invalid for type int64)
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(int64: "broom"))
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(int64: TestMsg.Foo.Bar.new()))
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(int64: ["chair"]))
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(int64: {:pillow}))
   end
 
   test "verifies uint32s" do
     assert :ok == Verifier.verify(TestMsg.Scalars.new(uint32: 11))
+    assert :ok == Verifier.verify(TestMsg.Scalars.new(uint32: 4_294_967_295))
+    assert :ok == Verifier.verify(TestMsg.Scalars.new(uint32: 0))
     assert {:error, err} = Verifier.verify(TestMsg.Scalars.new(uint32: -11))
     assert err =~ ~s(-11 is invalid for type uint32)
-    assert {:error, err} = Verifier.verify(TestMsg.Scalars.new(uint32: 111_111_111_111))
-    assert err =~ ~s(111111111111 is invalid for type uint32)
+    assert {:error, err} = Verifier.verify(TestMsg.Scalars.new(uint32: 4_294_967_296))
+    assert err =~ ~s(4294967296 is invalid for type uint32)
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(uint32: 0.5))
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(uint32: "shoe"))
   end
 
   test "verifies uint64s" do
@@ -34,6 +53,8 @@ defmodule Protobuf.VerifierTest do
     assert err =~ ~s(-11 is invalid for type uint64)
     assert {:error, err} = Verifier.verify(TestMsg.Scalars.new(uint64: 1.5))
     assert err =~ ~s(1.5 is invalid for type uint64)
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(uint64: :blah))
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(uint64: "book"))
   end
 
   test "verifies floats and doubles" do
@@ -47,8 +68,8 @@ defmodule Protobuf.VerifierTest do
     assert :ok == Verifier.verify(TestMsg.Scalars.new(double: :negative_infinity))
     assert :ok == Verifier.verify(TestMsg.Scalars.new(float: :nan))
     assert :ok == Verifier.verify(TestMsg.Scalars.new(double: :nan))
-    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(float: "bob"))
-    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(double: "bob"))
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(float: "rug"))
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(double: "table"))
     assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(float: true))
     assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(double: false))
   end
@@ -68,7 +89,10 @@ defmodule Protobuf.VerifierTest do
     assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(fixed64: 1.5))
     assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(fixed32: 111_111_111_111))
     assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(sint32: 111_111_111_111))
-    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(fixed32: 111_111_111_111))
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(sint32: "jack"))
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(sint64: :jill))
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(fixed32: <<117, 112>>))
+    assert {:error, _err} = Verifier.verify(TestMsg.Scalars.new(fixed64: %{"the" => "hill"}))
   end
 
   test "verifies bools" do
@@ -77,8 +101,8 @@ defmodule Protobuf.VerifierTest do
     assert :ok == Verifier.verify(TestMsg.Scalars.new(bool: nil))
     assert {:error, err} = Verifier.verify(TestMsg.Scalars.new(bool: -11))
     assert err =~ ~s(-11 is invalid for type bool)
-    assert {:error, err} = Verifier.verify(TestMsg.Scalars.new(bool: "foo"))
-    assert err =~ ~s("foo" is invalid for type bool)
+    assert {:error, err} = Verifier.verify(TestMsg.Scalars.new(bool: "vase"))
+    assert err =~ ~s("vase" is invalid for type bool)
     assert {:error, err} = Verifier.verify(TestMsg.Scalars.new(bool: :yarrrr))
     assert err =~ ~s(:yarrrr is invalid for type bool)
   end
@@ -130,6 +154,8 @@ defmodule Protobuf.VerifierTest do
 
   test "verifies repeated enum fields" do
     assert :ok == Verifier.verify(TestMsg.Foo.new(o: [:A, :B]))
+    assert :ok == Verifier.verify(TestMsg.Foo.new(o: []))
+    assert :ok == Verifier.verify(TestMsg.Foo.new(o: nil))
     assert {:error, _err} = Verifier.verify(TestMsg.Foo.new(o: [:bob, :B]))
     assert {:error, _err} = Verifier.verify(TestMsg.Foo.new(o: [:A, :bob]))
     assert {:error, _err} = Verifier.verify(TestMsg.Foo.new(o: [:bob, :bob]))
@@ -138,7 +164,11 @@ defmodule Protobuf.VerifierTest do
   test "verifies map types" do
     assert :ok == Verifier.verify(TestMsg.Foo.new(l: %{"foo_key" => 213}))
     assert {:error, _err} = Verifier.verify(TestMsg.Foo.new(l: "boo"))
-    # TODO: handle cases like TestMsg.Foo.new(l: ["hoo"]) better
+    assert {:error, _err} = Verifier.verify(TestMsg.Foo.new(l: ["hoo"]))
+    # the field "l" is a map from string to int32
+    assert {:error, _err} = Verifier.verify(TestMsg.Foo.new(l: %{"foo_key" => "blah"}))
+    assert {:error, _err} = Verifier.verify(TestMsg.Foo.new(l: %{123 => "blah"}))
+    assert {:error, _err} = Verifier.verify(TestMsg.Foo.new(l: %{"foo_key" => 111_111_111_111}))
   end
 
   test "verifies oneof fields" do
@@ -157,8 +187,8 @@ defmodule Protobuf.VerifierTest do
                TestMsg.Oneof.new(%{first: "not-in-a-tuple", second: {:c, 123}, other: "other"})
              )
 
-    assert err =
-             "TestMsg.Oneof field first has the wrong structure: the value of an oneof field should be {key, val} or nil"
+    assert err ==
+             "TestMsg.Oneof#first has the wrong structure: the value of a oneof field should be nil or {key, val} where key = atom of a field name inside the oneof and val = its value"
 
     assert {:error, _err} =
              Verifier.verify(
@@ -169,11 +199,29 @@ defmodule Protobuf.VerifierTest do
   test "verifies map with oneof" do
     assert :ok ==
              Verifier.verify(
-               Google.Protobuf.Struct.new(fields: %{"valid" => %{kind: {:bool_value, true}}})
+               Google.Protobuf.Struct.new(
+                 fields: %{"valid" => Google.Protobuf.Value.new(kind: {:bool_value, true})}
+               )
              )
 
     assert {:error, _err} =
-             Verifier.verify(Google.Protobuf.Struct.new(fields: %{"valid" => %{kind: 555}}))
+             Verifier.verify(
+               Google.Protobuf.Struct.new(
+                 fields: %{"valid" => Google.Protobuf.Value.new(kind: 555)}
+               )
+             )
+  end
+
+  test "supports map syntax for submessages" do
+    assert :ok ==
+             Verifier.verify(
+               Google.Protobuf.Struct.new(fields: %{"valid" => %{kind: {:bool_value, true}}})
+             )
+
+    assert {:error, err} =
+             Verifier.verify(Google.Protobuf.Struct.new(fields: %{"valid" => %{kind: "foobar"}}))
+
+    assert err =~ "value of a oneof field should be nil or {key, val}"
   end
 
   test "verifies embedded messages" do
@@ -191,6 +239,11 @@ defmodule Protobuf.VerifierTest do
              Verifier.verify(TestMsg.Foo.new(a: 42, e: %TestMsg.Foo.Bar{a: 12, b: 55.5}, f: 13))
 
     assert err =~ ~s(55.5 is invalid for type string)
+
+    # wrong type of embedded message
+    assert {:error, err} = Verifier.verify(TestMsg.Foo.new(e: TestMsg.Foo2.new()))
+
+    assert err =~ ~s(got Elixir.TestMsg.Foo2 but expected Elixir.TestMsg.Foo.Bar)
   end
 
   test "verifies repeated embedded fields" do
@@ -202,6 +255,14 @@ defmodule Protobuf.VerifierTest do
     assert :ok ==
              Verifier.verify(TestMsg.Foo.new(h: [TestMsg.Foo.Bar.new(), TestMsg.Foo.Bar.new()]))
 
+    # wrong type of embedded message
+    assert {:error, _err} =
+             Verifier.verify(TestMsg.Foo.new(h: [TestMsg.Foo2.new(), TestMsg.Foo.Bar.new()]))
+
+    assert {:error, _err} =
+             Verifier.verify(TestMsg.Foo.new(h: [TestMsg.Foo.Bar.new(), TestMsg.Foo2.new()]))
+
+    # wrong field inside one of the embedded messages
     assert {:error, _err} =
              Verifier.verify(
                TestMsg.Foo.new(h: [TestMsg.Foo.Bar.new(a: "bob"), TestMsg.Foo.Bar.new()])

@@ -8,14 +8,21 @@ defmodule Protobuf.Verifier do
   import Protobuf.WireTypes
   alias Protobuf.{MessageProps, FieldProps, FieldOptionsProcessor}
 
-  @spec verify(struct, keyword) :: :ok | {:error, String.t()}
+  @spec verify(struct) :: :ok | {:error, String.t()}
   def verify(%mod{} = struct), do: do_verify(struct, mod.__message_props__())
 
-  @spec verify(atom, struct) :: :ok | {:error, String.t()}
+  @spec verify(atom, struct | map) :: :ok | {:error, String.t()}
   def verify(mod, msg) do
     case msg do
-      %{__struct__: ^mod} -> verify(msg)
-      _ -> verify(mod.new!(msg))
+      %{__struct__: ^mod} ->
+        verify(msg)
+
+      _ ->
+        if is_map(msg) and Map.has_key?(msg, :__struct__) and mod != msg.__struct__ do
+          {:error, "got #{msg.__struct__} but expected #{mod}"}
+        else
+          verify(mod.new!(msg))
+        end
     end
   end
 
@@ -24,7 +31,7 @@ defmodule Protobuf.Verifier do
     syntax = props.syntax
 
     with {:ok, oneofs} <- oneof_actual_vals(props, struct),
-         :ok <- verify_fields(Map.values(field_props), syntax, struct, oneofs, :ok) do
+         :ok <- verify_fields(Map.values(field_props), syntax, struct, oneofs) do
       if syntax == :proto2 do
         verify_extensions(struct)
       else
@@ -36,7 +43,7 @@ defmodule Protobuf.Verifier do
     end
   end
 
-  defp verify_fields(fields, syntax, struct, oneofs, :ok) do
+  defp verify_fields(fields, syntax, struct, oneofs) do
     Enum.map(fields, fn %{name_atom: name, oneof: oneof} = prop ->
       val =
         if oneof do
@@ -58,6 +65,8 @@ defmodule Protobuf.Verifier do
     |> first_non_ok_value_if_present()
   end
 
+  defp wrap_error(:ok, _struct, _prop), do: :ok
+
   defp wrap_error({:error, msg}, struct, prop) do
     wrapped_msg =
       "Got error when verifying the values of #{inspect(struct.__struct__)}##{prop.name_atom}: #{
@@ -66,11 +75,6 @@ defmodule Protobuf.Verifier do
 
     {:error, wrapped_msg}
   end
-
-  defp wrap_error(:ok, _struct, _prop), do: :ok
-
-  @doc false
-  def skip_field?(syntax, val, prop)
 
   def skip_field?(_syntax, val, %{type: type, options: options} = prop) when not is_nil(options),
     do: FieldOptionsProcessor.skip_verify?(type, val, prop, options)
@@ -81,7 +85,7 @@ defmodule Protobuf.Verifier do
   def skip_field?(:proto3, nil, _), do: true
   def skip_field?(_, _, _), do: false
 
-  @spec verify_field(atom, any, FieldProps.t()) :: :ok
+  @spec verify_field(atom, any, FieldProps.t()) :: :ok | {:error, String.t()}
   defp verify_field(
          :normal,
          val,
@@ -139,36 +143,10 @@ defmodule Protobuf.Verifier do
   defp class_field(%{wire_type: wire_delimited(), embedded?: true}), do: :embedded
   defp class_field(_), do: :normal
 
-  @doc false
   @spec verify_type(atom, any) :: :ok
-  def verify_type(:int32, n) when is_integer(n) and n >= -0x80000000 and n <= 0x7FFFFFFF, do: :ok
-
-  def verify_type(:int64, n)
-      when is_integer(n) and n >= -0x8000000000000000 and n <= 0x7FFFFFFFFFFFFFFF,
-      do: :ok
-
-  def verify_type(:uint32, n) when is_integer(n) and n >= 0 and n <= 0xFFFFFFFF, do: :ok
-  def verify_type(:uint64, n) when is_integer(n) and n >= 0 and n <= 0xFFFFFFFFFFFFFFFF, do: :ok
   def verify_type(:string, n) when is_binary(n), do: :ok
   def verify_type(:bool, true), do: :ok
   def verify_type(:bool, false), do: :ok
-
-  def verify_type({:enum, type}, n) when is_atom(n) do
-    if type.mapping() |> Map.has_key?(n) do
-      :ok
-    else
-      {:error, "#{inspect(n)} is not a valid value in enum #{type}"}
-    end
-  end
-
-  def verify_type({:enum, type}, n) when is_integer(n) do
-    if type.__reverse_mapping__() |> Map.has_key?(n) do
-      :ok
-    else
-      {:error, "#{inspect(n)} is not a valid value in enum #{type}"}
-    end
-  end
-
   def verify_type(:float, :infinity), do: :ok
   def verify_type(:float, :negative_infinity), do: :ok
   def verify_type(:float, :nan), do: :ok
@@ -178,6 +156,14 @@ defmodule Protobuf.Verifier do
   def verify_type(:double, :nan), do: :ok
   def verify_type(:double, n) when is_number(n), do: :ok
   def verify_type(:bytes, n) when is_binary(n), do: :ok
+  def verify_type(:int32, n) when is_integer(n) and n >= -0x80000000 and n <= 0x7FFFFFFF, do: :ok
+
+  def verify_type(:int64, n)
+      when is_integer(n) and n >= -0x8000000000000000 and n <= 0x7FFFFFFFFFFFFFFF,
+      do: :ok
+
+  def verify_type(:uint32, n) when is_integer(n) and n >= 0 and n <= 0xFFFFFFFF, do: :ok
+  def verify_type(:uint64, n) when is_integer(n) and n >= 0 and n <= 0xFFFFFFFFFFFFFFFF, do: :ok
   def verify_type(:sint32, n) when is_integer(n) and n >= -0x80000000 and n <= 0x7FFFFFFF, do: :ok
 
   def verify_type(:sint64, n)
@@ -195,11 +181,28 @@ defmodule Protobuf.Verifier do
   def verify_type(:sfixed32, n) when is_integer(n) and n >= -0x80000000 and n <= 0x7FFFFFFF,
     do: :ok
 
-  # Failure cases
+  def verify_type({:enum, type}, n) when is_atom(n) do
+    if type.mapping() |> Map.has_key?(n) do
+      :ok
+    else
+      {:error, "#{inspect(n)} is not a valid value in enum #{type}"}
+    end
+  end
+
+  def verify_type({:enum, type}, n) when is_integer(n) do
+    if type.__reverse_mapping__() |> Map.has_key?(n) do
+      :ok
+    else
+      {:error, "#{inspect(n)} is not a valid value in enum #{type}"}
+    end
+  end
+
+  # Enum failure case
   def verify_type({:enum, type}, n) do
     {:error, "#{inspect(n)} is invalid for type #{type}"}
   end
 
+  # General failure case
   def verify_type(type, n) do
     {:error, "#{inspect(n)} is invalid for type #{type}"}
   end
@@ -233,7 +236,7 @@ defmodule Protobuf.Verifier do
           _ ->
             {:halt,
              {:error,
-              "#{inspect(struct.__struct__)}##{field} has the wrong structure: the value of an oneof field should be {key, val} or nil"}}
+              "#{inspect(struct.__struct__)}##{field} has the wrong structure: the value of a oneof field should be nil or {key, val} where key = atom of a field name inside the oneof and val = its value"}}
         end
       end)
 
