@@ -96,7 +96,7 @@ defmodule Protobuf.Verifier do
   defp verify_field(
          :normal,
          val,
-         %{encoded_fnum: _fnum, type: type, repeated?: is_repeated} = prop
+         %{type: type, repeated?: is_repeated} = prop
        ) do
     repeated_or_not(val, is_repeated, fn v ->
       if is_nil(prop.options) do
@@ -108,12 +108,15 @@ defmodule Protobuf.Verifier do
     |> first_non_ok_value_if_present()
   end
 
+  # The guard ensures that val's type matches the is_repeated or is_map parameters
   defp verify_field(
          :embedded,
          val,
-         %{encoded_fnum: _fnum, repeated?: is_repeated, map?: is_map, type: type} = prop
-       ) do
-    repeated = is_repeated || is_map
+         %{repeated?: is_repeated, map?: is_map, type: type} = prop
+       )
+       when (is_repeated and is_list(val)) or (is_map and is_map(val)) or
+              (not is_repeated and not is_map) do
+    repeated = is_repeated or is_map
 
     repeated_or_not(val, repeated, fn v ->
       v = if is_map, do: struct(prop.type, %{key: elem(v, 0), value: elem(v, 1)}), else: v
@@ -125,14 +128,15 @@ defmodule Protobuf.Verifier do
       end
     end)
     |> first_non_ok_value_if_present()
-  rescue
-    # This is kind of a dirty way to handle cases where repeated == true but val isn't something you can iterate over
-    Protocol.UndefinedError ->
+  end
+
+  # A catchall for params that don't match the verify_field(:embedded) guard above
+  defp verify_field(:embedded, val, prop),
+    do:
       {:error,
        "Got a value: #{inspect(val)} that isn't a map or list for the repeated or map field #{
          prop.name_atom
        }"}
-  end
 
   defp repeated_or_not(val, repeated, func) do
     if repeated do
@@ -222,39 +226,36 @@ defmodule Protobuf.Verifier do
   defp skip_enum?(%{type: _type}, nil), do: true
   defp skip_enum?(%{type: _type}, _value), do: false
 
-  defmodule(OneofActualValsError, do: defexception([:message]))
-
-  # I don't like this control flow, but it works
   defp oneof_actual_vals(
          %{field_tags: field_tags, field_props: field_props, oneof: oneof},
          struct
        ) do
     result =
-      Enum.reduce(oneof, %{}, fn {field, index}, acc ->
+      Enum.reduce_while(oneof, %{}, fn {field, index}, acc ->
         case Map.get(struct, field, nil) do
           {f, val} ->
             %{oneof: oneof} = field_props[field_tags[f]]
 
             if oneof != index do
-              raise OneofActualValsError,
-                message: ":#{f} doesn't belong to #{inspect(struct.__struct__)}##{field}"
+              {:halt, {:error, ":#{f} doesn't belong to #{inspect(struct.__struct__)}##{field}"}}
             else
-              Map.put(acc, f, val)
+              {:cont, Map.put(acc, f, val)}
             end
 
           nil ->
-            acc
+            {:cont, acc}
 
           _ ->
-            raise OneofActualValsError,
-              message:
-                "#{inspect(struct.__struct__)}##{field} has the wrong structure: the value of an oneof field should be {key, val} or nil"
+            {:halt,
+             {:error,
+              "#{inspect(struct.__struct__)}##{field} has the wrong structure: the value of an oneof field should be {key, val} or nil"}}
         end
       end)
 
-    {:ok, result}
-  rescue
-    e in OneofActualValsError -> {:error, e.message}
+    case result do
+      {:error, message} -> {:error, message}
+      successful_result -> {:ok, successful_result}
+    end
   end
 
   defp verify_extensions(%mod{__pb_extensions__: pb_exts}) when is_map(pb_exts) do
