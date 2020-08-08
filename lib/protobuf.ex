@@ -54,6 +54,21 @@ defmodule Protobuf do
         Protobuf.Builder.new!(__MODULE__, attrs)
       end
 
+      def new_and_verify!(attrs) do
+        struct = Protobuf.Builder.new!(__MODULE__, attrs)
+
+        case Protobuf.Verifier.verify(struct) do
+          {:error, message} ->
+            raise Protobuf.VerificationError, message: message
+
+          :ok ->
+            # Do nothing
+            nil
+        end
+
+        struct
+      end
+
       unquote(def_encode_decode())
     end
   end

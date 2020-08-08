@@ -41,4 +41,6 @@ defimpl Extype.Protocol, for: Google.Protobuf.Timestamp do
 
     if extype == :naivedatetime, do: DateTime.to_naive(value), else: value
   end
+
+  def verify_type(_type, _val, _extype), do: :ok
 end
