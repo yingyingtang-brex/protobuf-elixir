@@ -8,24 +8,19 @@ defmodule Protobuf.Verifier do
   import Protobuf.WireTypes
   alias Protobuf.{MessageProps, FieldProps, FieldOptionsProcessor}
 
-  @spec verify(atom, map | struct, keyword) :: :ok | {:error, String.t()}
-  def verify(mod, msg, opts) do
-    case msg do
-      %{__struct__: ^mod} ->
-        verify(msg, opts)
+  @spec verify(struct, keyword) :: :ok | {:error, String.t()}
+  def verify(%mod{} = struct), do: do_verify(struct, mod.__message_props__())
 
-      _ ->
-        verify(mod.new(msg), opts)
+  @spec verify(atom, struct) :: :ok | {:error, String.t()}
+  def verify(mod, msg) do
+    case msg do
+      %{__struct__: ^mod} -> verify(msg)
+      _ -> verify(mod.new!(msg))
     end
   end
 
-  @spec verify(struct, keyword) :: :ok | {:error, String.t()}
-  def verify(%mod{} = struct, _opts \\ []) do
-    verify!(struct, mod.__message_props__())
-  end
-
-  @spec verify!(struct, MessageProps.t()) :: :ok | {:error, String.t()}
-  def verify!(struct, %{field_props: field_props} = props) do
+  @spec do_verify(struct, MessageProps.t()) :: :ok | {:error, String.t()}
+  defp do_verify(struct, %{field_props: field_props} = props) do
     syntax = props.syntax
 
     with {:ok, oneofs} <- oneof_actual_vals(props, struct),
@@ -37,37 +32,31 @@ defmodule Protobuf.Verifier do
       end
     else
       :ok -> :ok
-      {:error, err} -> {:error, err}
+      {:error, message} -> {:error, message}
     end
   end
 
-  defp verify_fields([], _, _, _, :ok), do: :ok
-
-  defp verify_fields([prop | tail], syntax, struct, oneofs, :ok) do
-    %{name_atom: name, oneof: oneof} = prop
-
-    val =
-      if oneof do
-        oneofs[name]
-      else
-        case struct do
-          %{^name => v} -> v
-          _ -> nil
+  defp verify_fields(fields, syntax, struct, oneofs, :ok) do
+    Enum.map(fields, fn %{name_atom: name, oneof: oneof} = prop ->
+      val =
+        if oneof do
+          oneofs[name]
+        else
+          case struct do
+            %{^name => v} -> v
+            _ -> nil
+          end
         end
+
+      if skip_field?(syntax, val, prop) || skip_enum?(prop, val) do
+        :ok
+      else
+        verify_field(class_field(prop), val, prop)
+        |> wrap_error(struct, prop)
       end
-
-    if skip_field?(syntax, val, prop) || skip_enum?(prop, val) do
-      verify_fields(tail, syntax, struct, oneofs, :ok)
-      |> wrap_error(struct, prop)
-    else
-      prev_result = verify_field(class_field(prop), val, prop)
-
-      verify_fields(tail, syntax, struct, oneofs, prev_result)
-      |> wrap_error(struct, prop)
-    end
+    end)
+    |> first_non_ok_value_if_present()
   end
-
-  defp verify_fields(_, _, _, _, prev_error), do: prev_error
 
   defp wrap_error({:error, msg}, struct, prop) do
     wrapped_msg =
@@ -122,7 +111,7 @@ defmodule Protobuf.Verifier do
       v = if is_map, do: struct(prop.type, %{key: elem(v, 0), value: elem(v, 1)}), else: v
 
       if is_nil(prop.options) do
-        verify(type, v, iolist: true)
+        verify(type, v)
       else
         FieldOptionsProcessor.verify_type(type, v, prop.options)
       end
@@ -138,14 +127,10 @@ defmodule Protobuf.Verifier do
          prop.name_atom
        }"}
 
-  defp repeated_or_not(val, repeated, func) do
-    if repeated do
-      Enum.map(val, func)
-    else
-      [func.(val)]
-    end
-  end
+  defp repeated_or_not(val, true = _repeated, func), do: Enum.map(val, func)
+  defp repeated_or_not(val, false = _repeated, func), do: [func.(val)]
 
+  # NOTE: This can aggregate all of the errors if we want
   defp first_non_ok_value_if_present([]), do: :ok
   defp first_non_ok_value_if_present([:ok | rest]), do: first_non_ok_value_if_present(rest)
   defp first_non_ok_value_if_present([non_ok_value | _rest]), do: non_ok_value

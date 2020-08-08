@@ -91,7 +91,7 @@ defmodule Protobuf.FieldOptionsProcessor do
     mod.decode_type(val, type, option)
   end
 
-  def verify_type(type, v, []), do: Protobuf.Verifier.verify(type, v, [])
+  def verify_type(type, v, []), do: Protobuf.Verifier.verify(type, v)
 
   def verify_type(type, v, options) do
     {mod, option} = get_mod(options)
