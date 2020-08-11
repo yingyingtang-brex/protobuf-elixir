@@ -81,7 +81,7 @@ defmodule Protobuf.Verifier do
 
   def skip_field?(_, [], _), do: true
   def skip_field?(_, v, _) when map_size(v) == 0, do: true
-  def skip_field?(:proto2, _, %{optional?: true}), do: true
+  def skip_field?(:proto2, nil, %{optional?: true}), do: true
   def skip_field?(:proto3, nil, _), do: true
   def skip_field?(_, _, _), do: false
 
