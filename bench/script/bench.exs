@@ -35,3 +35,39 @@ encode =
       do: {name, module.decode(payload)}
 
 Benchee.run(%{"encode" => &Protobuf.Encoder.encode/1}, opts.("encode", encode))
+
+IO.puts("\n")
+
+verify  =
+  for {name, module, payload} <- benches,
+      into: %{},
+      do: {name, module.decode(payload)}
+
+Benchee.run(%{"verify" => &Protobuf.Verifier.verify/1}, opts.("verify", verify))
+
+IO.puts("\n")
+
+new =
+  for {name, module, payload} <- benches,
+      into: %{},
+      do: {name, {module, module.decode(payload) |> Map.from_struct()}}
+
+Benchee.run(%{"new" => fn {mod, params} -> mod.new(params) end}, opts.("new", new))
+
+IO.puts("\n")
+
+new! =
+  for {name, module, payload} <- benches,
+      into: %{},
+      do: {name, {module, module.decode(payload) |> Map.from_struct()}}
+
+Benchee.run(%{"new!" => fn {mod, params} -> mod.new!(params) end}, opts.("new!", new!))
+
+IO.puts("\n")
+
+new_and_verify! =
+  for {name, module, payload} <- benches,
+      into: %{},
+      do: {name, {module, module.decode(payload) |> Map.from_struct()}}
+
+Benchee.run(%{"new_and_verify!" => fn {mod, params} -> mod.new_and_verify!(params) end}, opts.("new_and_verify!", new_and_verify!))
