@@ -297,6 +297,21 @@ defmodule Protobuf.VerifierTest do
     end
   end
 
+  test "verifies timestamp fields with extype option" do
+    assert :ok == Verifier.verify(TestMsg.Ext.Timestamps.new(a: nil))
+    assert :ok == Verifier.verify(TestMsg.Ext.Timestamps.new(b: nil))
+    assert :ok == Verifier.verify(TestMsg.Ext.Timestamps.new(a: DateTime.utc_now()))
+    assert :ok == Verifier.verify(TestMsg.Ext.Timestamps.new(b: NaiveDateTime.utc_now()))
+    assert {:error, err} = Verifier.verify(TestMsg.Ext.Timestamps.new(a: NaiveDateTime.utc_now()))
+    assert err =~ "non-DateTime value for a timestamp field with extype DateTime.t()"
+    assert {:error, err} = Verifier.verify(TestMsg.Ext.Timestamps.new(b: DateTime.utc_now()))
+    assert err =~ "non-NaiveDateTime value for a timestamp field with extype NaiveDateTime.t()"
+    assert {:error, _err} = Verifier.verify(TestMsg.Ext.Timestamps.new(a: "lenny"))
+    assert {:error, _err} = Verifier.verify(TestMsg.Ext.Timestamps.new(b: "carl"))
+    assert {:error, _err} = Verifier.verify(TestMsg.Ext.Timestamps.new(a: 123))
+    assert {:error, _err} = Verifier.verify(TestMsg.Ext.Timestamps.new(b: 321))
+  end
+
   describe "new_and_verify!/1" do
     test "new_and_verify!/1 builds struct" do
       result = TestMsg.Foo.Bar.new_and_verify!(a: 20, b: "test")

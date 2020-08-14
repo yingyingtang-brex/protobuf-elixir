@@ -69,7 +69,7 @@ defmodule Protobuf.Verifier do
 
   defp wrap_error({:error, msg}, struct, prop) do
     wrapped_msg =
-      "Got error when verifying the values of #{inspect(struct.__struct__)}##{prop.name_atom}: #{
+      "Got error when verifying the value(s) of #{inspect(struct.__struct__)}##{prop.name_atom}: #{
         msg
       }"
 
@@ -143,7 +143,7 @@ defmodule Protobuf.Verifier do
   defp class_field(%{wire_type: wire_delimited(), embedded?: true}), do: :embedded
   defp class_field(_), do: :normal
 
-  @spec verify_type(atom, any) :: :ok
+  @spec verify_type(atom, any) :: :ok | {:error, String.t()}
   def verify_type(:string, n) when is_binary(n), do: :ok
   def verify_type(:bool, true), do: :ok
   def verify_type(:bool, false), do: :ok

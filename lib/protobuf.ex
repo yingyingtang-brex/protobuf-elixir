@@ -61,12 +61,8 @@ defmodule Protobuf do
           {:error, message} ->
             raise Protobuf.VerificationError, message: message
 
-          :ok ->
-            # Do nothing
-            nil
+          :ok -> struct
         end
-
-        struct
       end
 
       unquote(def_encode_decode())
