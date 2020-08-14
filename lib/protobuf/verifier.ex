@@ -135,7 +135,7 @@ defmodule Protobuf.Verifier do
   defp repeated_or_not(val, true = _repeated, func), do: Enum.map(val, func)
   defp repeated_or_not(val, false = _repeated, func), do: [func.(val)]
 
-  @spec ok_or_aggregate_errors([:ok | {:error, String.t()}]) :: :ok :: {:error, [String.t()]}
+  @spec ok_or_aggregate_errors([:ok | {:error, String.t()}]) :: :ok | {:error, [String.t()]}
   defp ok_or_aggregate_errors([]), do: :ok
   defp ok_or_aggregate_errors([:ok | rest]), do: ok_or_aggregate_errors(rest)
 
@@ -194,7 +194,7 @@ defmodule Protobuf.Verifier do
     if type.mapping() |> Map.has_key?(n) do
       :ok
     else
-      {:error, "#{inspect(n)} is not a valid value in enum #{type}"}
+      {:error, "invalid value for enum #{type}"}
     end
   end
 
@@ -202,18 +202,18 @@ defmodule Protobuf.Verifier do
     if type.__reverse_mapping__() |> Map.has_key?(n) do
       :ok
     else
-      {:error, "#{inspect(n)} is not a valid value in enum #{type}"}
+      {:error, "invalid value for enum #{type}"}
     end
   end
 
   # Enum failure case
-  def verify_type({:enum, type}, n) do
-    {:error, "#{inspect(n)} is invalid for type #{type}"}
+  def verify_type({:enum, type}, _n) do
+    {:error, "invalid value for type #{type}"}
   end
 
   # General failure case
-  def verify_type(type, n) do
-    {:error, "#{inspect(n)} is invalid for type #{type}"}
+  def verify_type(type, _n) do
+    {:error, "invalid value for type #{type}"}
   end
 
   defp skip_enum?(%{type: type, options: options} = prop, value) when not is_nil(options) do

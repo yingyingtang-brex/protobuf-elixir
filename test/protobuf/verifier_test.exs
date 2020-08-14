@@ -13,11 +13,11 @@ defmodule Protobuf.VerifierTest do
     assert :ok == Verifier.verify(TestMsg.Foo.new(a: -42))
     assert :ok == Verifier.verify(TestMsg.Foo.new(a: 0))
     assert {:error, errs} = Verifier.verify(TestMsg.Foo.new(a: "candle"))
-    assert has_single_message_matching(errs, ~s("candle" is invalid for type int32))
+    assert has_single_message_matching(errs, ~s(invalid value for type int32))
     assert {:error, errs} = Verifier.verify(TestMsg.Foo.new(a: 111_111_111_111))
-    assert has_single_message_matching(errs, ~s(111111111111 is invalid for type int32))
+    assert has_single_message_matching(errs, ~s(invalid value for type int32))
     assert {:error, errs} = Verifier.verify(TestMsg.Foo.new(a: 3.14))
-    assert has_single_message_matching(errs, ~s(3.14 is invalid for type int32))
+    assert has_single_message_matching(errs, ~s(invalid value for type int32))
     assert {:error, _errs} = Verifier.verify(TestMsg.Foo.new(a: false))
     assert {:error, _errs} = Verifier.verify(TestMsg.Foo.new(a: :enum_value))
     assert {:error, _errs} = Verifier.verify(TestMsg.Foo.new(a: TestMsg.Foo))
@@ -32,7 +32,7 @@ defmodule Protobuf.VerifierTest do
     assert :ok == Verifier.verify(TestMsg.Scalars.new(int64: 9_223_372_036_854_775_807))
     assert :ok == Verifier.verify(TestMsg.Scalars.new(int64: nil))
     assert {:error, errs} = Verifier.verify(TestMsg.Scalars.new(int64: :test))
-    assert has_single_message_matching(errs, ~s(:test is invalid for type int64))
+    assert has_single_message_matching(errs, ~s(invalid value for type int64))
     assert {:error, _errs} = Verifier.verify(TestMsg.Scalars.new(int64: "broom"))
     assert {:error, _errs} = Verifier.verify(TestMsg.Scalars.new(int64: TestMsg.Foo.Bar.new()))
     assert {:error, _errs} = Verifier.verify(TestMsg.Scalars.new(int64: ["chair"]))
@@ -44,9 +44,9 @@ defmodule Protobuf.VerifierTest do
     assert :ok == Verifier.verify(TestMsg.Scalars.new(uint32: 4_294_967_295))
     assert :ok == Verifier.verify(TestMsg.Scalars.new(uint32: 0))
     assert {:error, errs} = Verifier.verify(TestMsg.Scalars.new(uint32: -11))
-    assert has_single_message_matching(errs, ~s(-11 is invalid for type uint32))
+    assert has_single_message_matching(errs, ~s(invalid value for type uint32))
     assert {:error, errs} = Verifier.verify(TestMsg.Scalars.new(uint32: 4_294_967_296))
-    assert has_single_message_matching(errs, ~s(4294967296 is invalid for type uint32))
+    assert has_single_message_matching(errs, ~s(invalid value for type uint32))
     assert {:error, _errs} = Verifier.verify(TestMsg.Scalars.new(uint32: 0.5))
     assert {:error, _errs} = Verifier.verify(TestMsg.Scalars.new(uint32: "shoe"))
   end
@@ -54,9 +54,9 @@ defmodule Protobuf.VerifierTest do
   test "verifies uint64s" do
     assert :ok == Verifier.verify(TestMsg.Scalars.new(uint64: 11))
     assert {:error, errs} = Verifier.verify(TestMsg.Scalars.new(uint64: -11))
-    assert has_single_message_matching(errs, ~s(-11 is invalid for type uint64))
+    assert has_single_message_matching(errs, ~s(invalid value for type uint64))
     assert {:error, errs} = Verifier.verify(TestMsg.Scalars.new(uint64: 1.5))
-    assert has_single_message_matching(errs, ~s(1.5 is invalid for type uint64))
+    assert has_single_message_matching(errs, ~s(invalid value for type uint64))
     assert {:error, _errs} = Verifier.verify(TestMsg.Scalars.new(uint64: :blah))
     assert {:error, _errs} = Verifier.verify(TestMsg.Scalars.new(uint64: "book"))
   end
@@ -104,26 +104,26 @@ defmodule Protobuf.VerifierTest do
     assert :ok == Verifier.verify(TestMsg.Scalars.new(bool: false))
     assert :ok == Verifier.verify(TestMsg.Scalars.new(bool: nil))
     assert {:error, errs} = Verifier.verify(TestMsg.Scalars.new(bool: -11))
-    assert has_single_message_matching(errs, ~s(-11 is invalid for type bool))
+    assert has_single_message_matching(errs, ~s(invalid value for type bool))
     assert {:error, errs} = Verifier.verify(TestMsg.Scalars.new(bool: "vase"))
-    assert has_single_message_matching(errs, ~s("vase" is invalid for type bool))
+    assert has_single_message_matching(errs, ~s(invalid value for type bool))
     assert {:error, errs} = Verifier.verify(TestMsg.Scalars.new(bool: :yarrrr))
-    assert has_single_message_matching(errs, ~s(:yarrrr is invalid for type bool))
+    assert has_single_message_matching(errs, ~s(invalid value for type bool))
   end
 
   test "verifies strings" do
     assert :ok == Verifier.verify(TestMsg.Foo.new(a: 42, b: 100, c: "", d: 123.5))
     assert :ok == Verifier.verify(TestMsg.Foo.new(a: 42, b: 100, c: "str", d: 123.5))
     assert {:error, errs} = Verifier.verify(TestMsg.Foo.new(a: 42, b: 100, c: false, d: 123.5))
-    assert has_single_message_matching(errs, ~s(false is invalid for type string))
+    assert has_single_message_matching(errs, ~s(invalid value for type string))
     assert {:error, errs} = Verifier.verify(TestMsg.Foo.new(a: 42, b: 100, c: 555, d: 123.5))
-    assert has_single_message_matching(errs, ~s(555 is invalid for type string))
+    assert has_single_message_matching(errs, ~s(invalid value for type string))
   end
 
   test "verifies bytes" do
     assert :ok == Verifier.verify(TestMsg.Scalars.new(bytes: "foo"))
     assert {:error, errs} = Verifier.verify(TestMsg.Scalars.new(bytes: 5.5))
-    assert has_single_message_matching(errs, ~s(5.5 is invalid for type bytes))
+    assert has_single_message_matching(errs, ~s(invalid value for type bytes))
   end
 
   test "verifies enums" do
@@ -135,21 +135,21 @@ defmodule Protobuf.VerifierTest do
 
     assert has_single_message_matching(
              errs,
-             ~s(:HELLO is not a valid value in enum Elixir.TestMsg.EnumFoo)
+             ~s(invalid value for enum Elixir.TestMsg.EnumFoo)
            )
 
     assert {:error, errs} = Verifier.verify(TestMsg.Foo.new(j: false))
 
     assert has_single_message_matching(
              errs,
-             ~s(false is not a valid value in enum Elixir.TestMsg.EnumFoo)
+             ~s(invalid value for enum Elixir.TestMsg.EnumFoo)
            )
 
     assert {:error, errs} = Verifier.verify(TestMsg.Foo.new(j: Non.Existent.Module))
 
     assert has_single_message_matching(
              errs,
-             ~s(Non.Existent.Module is not a valid value in enum Elixir.TestMsg.EnumFoo)
+             ~s(invalid value for enum Elixir.TestMsg.EnumFoo)
            )
 
     assert {:error, _errs} = Verifier.verify(TestMsg.Foo.new(j: "test"))
@@ -168,14 +168,14 @@ defmodule Protobuf.VerifierTest do
     # This error message isn't ideal, but I'm not sure it's worth threading through the uncapitalized value
     assert has_single_message_matching(
              errs,
-             ~s(:ABCDEF is not a valid value in enum Elixir.TestMsg.EnumFoo)
+             ~s(invalid value for enum Elixir.TestMsg.EnumFoo)
            )
 
     assert {:error, errs} = Verifier.verify(TestMsg.Atom.Bar2.new(b: :abcdef))
 
     assert has_single_message_matching(
              errs,
-             ~s(:ABCDEF is not a valid value in enum Elixir.TestMsg.EnumFoo)
+             ~s(invalid value for enum Elixir.TestMsg.EnumFoo)
            )
   end
 
@@ -262,12 +262,12 @@ defmodule Protobuf.VerifierTest do
                TestMsg.Foo.new(a: 42, e: %TestMsg.Foo.Bar{a: true, b: "abc"}, f: 13)
              )
 
-    assert has_single_message_matching(errs, ~s(true is invalid for type int32))
+    assert has_single_message_matching(errs, ~s(invalid value for type int32))
 
     assert {:error, errs} =
              Verifier.verify(TestMsg.Foo.new(a: 42, e: %TestMsg.Foo.Bar{a: 12, b: 55.5}, f: 13))
 
-    assert has_single_message_matching(errs, ~s(55.5 is invalid for type string))
+    assert has_single_message_matching(errs, ~s(invalid value for type string))
 
     # wrong type of embedded message
     assert {:error, errs} = Verifier.verify(TestMsg.Foo.new(e: TestMsg.Foo2.new()))
