@@ -346,6 +346,10 @@ defmodule TestMsg do
     defstruct [:a, :b]
 
     field :a, 1, optional: true, type: Google.Protobuf.Timestamp, options: [extype: "DateTime.t"]
-    field :b, 2, optional: true, type: Google.Protobuf.Timestamp, options: [extype: "NaiveDateTime.t"]
+
+    field :b, 2,
+      optional: true,
+      type: Google.Protobuf.Timestamp,
+      options: [extype: "NaiveDateTime.t"]
   end
 end

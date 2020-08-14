@@ -44,6 +44,10 @@ defimpl Extype.Protocol, for: Google.Protobuf.Timestamp do
 
   def verify_type(_type, %DateTime{} = _val, :datetime), do: :ok
   def verify_type(_type, %NaiveDateTime{} = _val, :naivedatetime), do: :ok
-  def verify_type(_type, _val, :datetime), do: {:error, "non-DateTime value for a timestamp field with extype DateTime.t()"}
-  def verify_type(_type, _val, :naivedatetime), do: {:error, "non-NaiveDateTime value for a timestamp field with extype NaiveDateTime.t()"}
+
+  def verify_type(_type, _val, :datetime),
+    do: {:error, "non-DateTime value for a timestamp field with extype DateTime.t()"}
+
+  def verify_type(_type, _val, :naivedatetime),
+    do: {:error, "non-NaiveDateTime value for a timestamp field with extype NaiveDateTime.t()"}
 end
