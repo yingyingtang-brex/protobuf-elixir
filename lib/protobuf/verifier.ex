@@ -1,17 +1,18 @@
 defmodule Protobuf.Verifier do
   @moduledoc """
-  Checks whether the values passed into a Message.new() call are valid.
-
-  The structure of this code is based on Protobuf.Encoder
+  Checks whether the values used when instantiating a new protobuf struct are valid.
   """
 
   import Protobuf.WireTypes
   alias Protobuf.{MessageProps, FieldProps, FieldOptionsProcessor}
 
-  @spec verify(struct) :: :ok | {:error, String.t()}
+  @doc """
+  Returns `:ok` or a tuple `{:error, <list-of-issues>}`
+  """
+  @spec verify(struct) :: :ok | {:error, [String.t()]}
   def verify(%mod{} = struct), do: do_verify(struct, mod.__message_props__())
 
-  @spec verify(atom, struct | map) :: :ok | {:error, String.t()}
+  @spec verify(atom, struct | map) :: :ok | {:error, [String.t()]}
   def verify(mod, msg) do
     case msg do
       %{__struct__: ^mod} ->
@@ -19,14 +20,14 @@ defmodule Protobuf.Verifier do
 
       _ ->
         if is_map(msg) and Map.has_key?(msg, :__struct__) and mod != msg.__struct__ do
-          {:error, "got #{msg.__struct__} but expected #{mod}"}
+          {:error, ["got #{msg.__struct__} but expected #{mod}"]}
         else
           verify(mod.new!(msg))
         end
     end
   end
 
-  @spec do_verify(struct, MessageProps.t()) :: :ok | {:error, String.t()}
+  @spec do_verify(struct, MessageProps.t()) :: :ok | {:error, [String.t()]}
   defp do_verify(struct, %{field_props: field_props} = props) do
     syntax = props.syntax
 
@@ -39,7 +40,7 @@ defmodule Protobuf.Verifier do
       end
     else
       :ok -> :ok
-      {:error, message} -> {:error, message}
+      {:error, messages} -> {:error, messages}
     end
   end
 
@@ -62,14 +63,14 @@ defmodule Protobuf.Verifier do
         |> wrap_error(struct, prop)
       end
     end)
-    |> first_non_ok_value_if_present()
+    |> ok_or_aggregate_errors()
   end
 
   defp wrap_error(:ok, _struct, _prop), do: :ok
 
   defp wrap_error({:error, msg}, struct, prop) do
     wrapped_msg =
-      "Got error when verifying the values of #{inspect(struct.__struct__)}##{prop.name_atom}: #{
+      "Error when verifying the value(s) of #{inspect(struct.__struct__)}##{prop.name_atom}: #{
         msg
       }"
 
@@ -85,7 +86,7 @@ defmodule Protobuf.Verifier do
   def skip_field?(:proto3, nil, _), do: true
   def skip_field?(_, _, _), do: false
 
-  @spec verify_field(atom, any, FieldProps.t()) :: :ok | {:error, String.t()}
+  @spec verify_field(atom, any, FieldProps.t()) :: :ok | {:error, [String.t()]}
   defp verify_field(
          :normal,
          val,
@@ -98,7 +99,7 @@ defmodule Protobuf.Verifier do
         FieldOptionsProcessor.verify_type(type, v, prop.options)
       end
     end)
-    |> first_non_ok_value_if_present()
+    |> ok_or_aggregate_errors()
   end
 
   # The guard ensures that val's type matches the is_repeated or is_map parameters
@@ -120,7 +121,7 @@ defmodule Protobuf.Verifier do
         FieldOptionsProcessor.verify_type(type, v, prop.options)
       end
     end)
-    |> first_non_ok_value_if_present()
+    |> ok_or_aggregate_errors()
   end
 
   # A catchall for params that don't match the verify_field(:embedded) guard above
@@ -131,19 +132,28 @@ defmodule Protobuf.Verifier do
          prop.name_atom
        }"}
 
-  defp repeated_or_not(val, true = _repeated, func), do: Enum.map(val, func)
+  defp repeated_or_not(val, true = _repeated, func) when is_list(val) or is_tuple(val) or is_map(val), do: Enum.map(val, func)
+  defp repeated_or_not(_val, true = _repeated, _func), do: [{:error, "Got value for repeated or map field that wasn't a list, tuple, or map"}]
   defp repeated_or_not(val, false = _repeated, func), do: [func.(val)]
 
-  # NOTE: This can aggregate all of the errors if we want
-  defp first_non_ok_value_if_present([]), do: :ok
-  defp first_non_ok_value_if_present([:ok | rest]), do: first_non_ok_value_if_present(rest)
-  defp first_non_ok_value_if_present([non_ok_value | _rest]), do: non_ok_value
+  @spec ok_or_aggregate_errors([:ok | {:error, String.t()}]) :: :ok | {:error, [String.t()]}
+  defp ok_or_aggregate_errors([]), do: :ok
+  defp ok_or_aggregate_errors([:ok | rest]), do: ok_or_aggregate_errors(rest)
+
+  defp ok_or_aggregate_errors([{:error, message} | rest]),
+    do: ok_or_aggregate_errors(rest, [message])
+
+  defp ok_or_aggregate_errors([], messages), do: {:error, messages}
+  defp ok_or_aggregate_errors([:ok | rest], messages), do: ok_or_aggregate_errors(rest, messages)
+
+  defp ok_or_aggregate_errors([{:error, message} | rest], messages),
+    do: ok_or_aggregate_errors(rest, messages ++ [message])
 
   @spec class_field(map) :: atom
   defp class_field(%{wire_type: wire_delimited(), embedded?: true}), do: :embedded
   defp class_field(_), do: :normal
 
-  @spec verify_type(atom, any) :: :ok
+  @spec verify_type(atom, any) :: :ok | {:error, String.t()}
   def verify_type(:string, n) when is_binary(n), do: :ok
   def verify_type(:bool, true), do: :ok
   def verify_type(:bool, false), do: :ok
@@ -185,7 +195,7 @@ defmodule Protobuf.Verifier do
     if type.mapping() |> Map.has_key?(n) do
       :ok
     else
-      {:error, "#{inspect(n)} is not a valid value in enum #{type}"}
+      {:error, "invalid value for enum #{type}"}
     end
   end
 
@@ -193,18 +203,18 @@ defmodule Protobuf.Verifier do
     if type.__reverse_mapping__() |> Map.has_key?(n) do
       :ok
     else
-      {:error, "#{inspect(n)} is not a valid value in enum #{type}"}
+      {:error, "invalid value for enum #{type}"}
     end
   end
 
   # Enum failure case
-  def verify_type({:enum, type}, n) do
-    {:error, "#{inspect(n)} is invalid for type #{type}"}
+  def verify_type({:enum, type}, _n) do
+    {:error, "invalid value for type #{type}"}
   end
 
   # General failure case
-  def verify_type(type, n) do
-    {:error, "#{inspect(n)} is invalid for type #{type}"}
+  def verify_type(type, _n) do
+    {:error, "invalid value for type #{type}"}
   end
 
   defp skip_enum?(%{type: type, options: options} = prop, value) when not is_nil(options) do
@@ -225,7 +235,8 @@ defmodule Protobuf.Verifier do
             %{oneof: oneof} = field_props[field_tags[f]]
 
             if oneof != index do
-              {:halt, {:error, ":#{f} doesn't belong to #{inspect(struct.__struct__)}##{field}"}}
+              {:halt,
+               {:error, [":#{f} doesn't belong to #{inspect(struct.__struct__)}##{field}"]}}
             else
               {:cont, Map.put(acc, f, val)}
             end
@@ -236,7 +247,9 @@ defmodule Protobuf.Verifier do
           _ ->
             {:halt,
              {:error,
-              "#{inspect(struct.__struct__)}##{field} has the wrong structure: the value of a oneof field should be nil or {key, val} where key = atom of a field name inside the oneof and val = its value"}}
+              [
+                "#{inspect(struct.__struct__)}##{field} has the wrong structure: the value of a oneof field should be nil or {key, val} where key = atom of a field name inside the oneof and val = its value"
+              ]}}
         end
       end)
 
@@ -258,7 +271,7 @@ defmodule Protobuf.Verifier do
           :ok
       end
     end)
-    |> first_non_ok_value_if_present()
+    |> ok_or_aggregate_errors()
   end
 
   defp verify_extensions(_), do: :ok
