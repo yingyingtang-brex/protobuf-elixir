@@ -24,6 +24,16 @@ defmodule Protobuf.VerifierTest do
     assert {:error, _errs} = Verifier.verify(TestMsg.Foo.new(a: TestMsg.Foo.new()))
   end
 
+  test "verifies repeated int32s" do
+    assert :ok == Verifier.verify(TestMsg.Foo.new(i: nil))
+    assert :ok == Verifier.verify(TestMsg.Foo.new(i: []))
+    assert :ok == Verifier.verify(TestMsg.Foo.new(i: [5]))
+    assert {:error, _errs} = Verifier.verify(TestMsg.Foo.new(i: [5, 111_111_111_111]))
+    assert {:error, _errs} = Verifier.verify(TestMsg.Foo.new(i: ["hey", 5]))
+    assert {:error, _errs} = Verifier.verify(TestMsg.Foo.new(i: ["okay", 5, TestMsg.Foo.new()]))
+    assert {:error, _errs} = Verifier.verify(TestMsg.Foo.new(i: 123))
+  end
+
   # TestMsg.Scalars has a bunch of fields with the same name as their types
   test "verifies int64s" do
     assert :ok == Verifier.verify(TestMsg.Scalars.new(int64: -200))
@@ -156,6 +166,25 @@ defmodule Protobuf.VerifierTest do
     assert {:error, _errs} = Verifier.verify(TestMsg.Foo.new(j: 200))
   end
 
+  test "verifies repeated enums" do
+    assert :ok == Verifier.verify(TestMsg.Foo.new(o: nil))
+    assert :ok == Verifier.verify(TestMsg.Foo.new(o: []))
+    assert :ok == Verifier.verify(TestMsg.Foo.new(o: [:A]))
+    assert :ok == Verifier.verify(TestMsg.Foo.new(o: [:B, :A, :UNKNOWN, :C]))
+    assert {:error, errs} = Verifier.verify(TestMsg.Foo.new(o: [:B, :A, :banana, :C]))
+    assert has_single_message_matching(
+             errs,
+             ~s(invalid value for enum Elixir.TestMsg.EnumFoo)
+           )
+    assert {:error, _errs} = Verifier.verify(TestMsg.Foo.new(o: [:B, :A, :D, "lalaland"]))
+    assert {:error, _errs} = Verifier.verify(TestMsg.Foo.new(o: [:B, :A, :D, 555, :E]))
+    assert {:error, errs} = Verifier.verify(TestMsg.Foo.new(o: :A))
+    assert has_single_message_matching(
+             errs,
+             ~s(Got value for repeated or map field that wasn't a list, tuple, or map)
+           )
+  end
+
   test "verifies enum with lowercase atoms" do
     assert :ok == Verifier.verify(TestMsg.Atom.Bar2.new(a: :unknown))
     assert :ok == Verifier.verify(TestMsg.Atom.Bar2.new(a: :A))
@@ -253,7 +282,7 @@ defmodule Protobuf.VerifierTest do
     assert has_single_message_matching(errs, "value of a oneof field should be nil or {key, val}")
   end
 
-  test "verifies embedded messages" do
+  test "verifies submessages" do
     assert :ok ==
              Verifier.verify(TestMsg.Foo.new(a: 42, e: %TestMsg.Foo.Bar{a: 12, b: "abc"}, f: 13))
 
@@ -278,7 +307,7 @@ defmodule Protobuf.VerifierTest do
            )
   end
 
-  test "verifies repeated embedded fields" do
+  test "verifies repeated submessages" do
     assert :ok ==
              Verifier.verify(
                TestMsg.Foo.new(h: [%TestMsg.Foo.Bar{a: 12, b: "abc"}, TestMsg.Foo.Bar.new(a: 13)])
