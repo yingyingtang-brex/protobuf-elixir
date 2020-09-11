@@ -165,6 +165,11 @@ defmodule Protobuf.DecoderTest do
              )
   end
 
+  test "decodes empty value" do
+    bin = <<10, 0>>
+    assert Decoder.decode(bin, TestMsg.Ext.DualUseCase) == TestMsg.Ext.DualUseCase.new(a: "")
+  end
+
   test "decode with and without custom field options, empty" do
     bin = <<18, 4, 10, 2, 115, 50>>
 

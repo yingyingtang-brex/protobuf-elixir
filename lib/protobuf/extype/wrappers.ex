@@ -50,7 +50,10 @@ defimpl Extype.Protocol,
   end
 
   def decode_type(_type, val, extype) do
-    [_tag, _wire, val | _rest] = Protobuf.Decoder.decode_raw(val)
-    Protobuf.Decoder.decode_type_m(extype, :value, val)
+    case Protobuf.Decoder.decode_raw(val) do
+      [] -> ""
+      [_tag, _wire, val | _rest] ->
+        Protobuf.Decoder.decode_type_m(extype, :value, val)
+    end
   end
 end
