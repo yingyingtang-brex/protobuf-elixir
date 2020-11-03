@@ -39,6 +39,7 @@ defmodule Protobuf do
       Module.register_attribute(__MODULE__, :extends, accumulate: true)
       Module.register_attribute(__MODULE__, :extensions, [])
       Module.register_attribute(__MODULE__, :msg_options, accumulate: true)
+      Module.register_attribute(__MODULE__, :full_name, accumulate: true)
 
       @options unquote(opts)
       @before_compile Protobuf.DSL

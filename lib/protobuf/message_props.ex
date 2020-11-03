@@ -16,7 +16,8 @@ defmodule Protobuf.MessageProps do
           extendable?: boolean,
           map?: boolean,
           extension_range: [{non_neg_integer, non_neg_integer}],
-          options: Keyword.t() | nil
+          options: Keyword.t() | nil,
+          full_name: String.t()
         }
   defstruct ordered_tags: [],
             tags_map: %{},
@@ -30,5 +31,6 @@ defmodule Protobuf.MessageProps do
             extendable?: false,
             map?: false,
             extension_range: [],
-            options: nil
+            options: nil,
+            full_name: ""
 end

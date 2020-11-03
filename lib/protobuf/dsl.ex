@@ -43,6 +43,10 @@ defmodule Protobuf.DSL do
   end
 
   defmacro __before_compile__(env) do
+    full_name = env.module
+    |> to_string
+    |> String.replace(~r/\.|Elixir/, "")
+    |> Macro.underscore()
     fields = Module.get_attribute(env.module, :fields)
     options = Module.get_attribute(env.module, :options)
 
@@ -60,7 +64,7 @@ defmodule Protobuf.DSL do
     msg_options = Module.get_attribute(env.module, :msg_options)
     syntax = Keyword.get(options, :syntax, :proto2)
     oneofs = Module.get_attribute(env.module, :oneofs)
-    msg_props = generate_msg_props(fields, oneofs, extensions, options, msg_options)
+    msg_props = generate_msg_props(fields, oneofs, extensions, options, msg_options, full_name)
     default_fields = generate_default_fields(syntax, msg_props)
     default_struct = Map.put(default_fields, :__struct__, env.module)
 
@@ -192,7 +196,7 @@ defmodule Protobuf.DSL do
     end
   end
 
-  defp generate_msg_props(fields, oneofs, extensions, options, msg_options) do
+  defp generate_msg_props(fields, oneofs, extensions, options, msg_options, full_name) do
     syntax = Keyword.get(options, :syntax, :proto2)
     field_props = field_props_map(syntax, fields)
 
@@ -209,6 +213,7 @@ defmodule Protobuf.DSL do
       |> Enum.map(fn props -> Map.get(props, :name_atom) end)
 
     %Protobuf.MessageProps{
+      full_name: full_name,
       tags_map: tags_map(fields),
       ordered_tags: ordered_tags(fields),
       field_props: field_props,
