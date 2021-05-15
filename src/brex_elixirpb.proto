@@ -4,22 +4,26 @@ package brex.elixirpb;
 
 import "google/protobuf/descriptor.proto";
 
-option go_package = "github.com/brexhq/brex_elixirpb";
+option go_package = "github.com/brexhq/protos/brexelixir";
 
 // Sample Field Option Extension
-// Defines an extension to specify the elixir type generated for the given field.
+// Defines an extension to specify the elixir type generated for the given
+// field.
 
 // For example:
-// google.protobuf.StringValue my_string = 1 [(brex.elixirpb.field).extype="String.t"];
+// google.protobuf.StringValue my_string = 1
+// [(brex.elixirpb.field).extype="String.t"];
 
 // To compile
-//protoc --plugin=./protoc-gen-elixir  --proto_path=lib --proto_path=src --elixir_out=lib src/brex_elixirpb.proto
+// protoc --plugin=./protoc-gen-elixir  --proto_path=lib --proto_path=src
+// --elixir_out=lib src/brex_elixirpb.proto
 
 message FieldOptions {
-  // Specifies an elixir type to generate for this field. This will override usual type.
+  // Specifies an elixir type to generate for this field. This will override
+  // usual type.
   optional string extype = 1;
   // Specifies options to lowercase or deprefix enums.
-  optional string enum = 2 [deprecated=true];
+  optional string enum = 2 [ deprecated = true ];
 }
 
 extend google.protobuf.FieldOptions {
@@ -35,6 +39,4 @@ message EnumOptions {
   optional bool deprefix = 3;
 }
 
-extend google.protobuf.EnumOptions {
-  optional EnumOptions enum = 65008;
-}
+extend google.protobuf.EnumOptions { optional EnumOptions enum = 65008; }

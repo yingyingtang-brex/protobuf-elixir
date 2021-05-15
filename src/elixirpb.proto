@@ -1,5 +1,5 @@
-// Put this file to elixirpb.proto under PROTO_PATH. See `protoc -h` for `--proto_path` option.
-// Then import it
+// Put this file to elixirpb.proto under PROTO_PATH. See `protoc -h` for
+// `--proto_path` option. Then import it
 // ````proto
 // import "elixirpb.proto";
 // ````
@@ -11,7 +11,7 @@ syntax = "proto2";
 
 package elixirpb;
 
-option go_package = "github.com/brexhq/elixirpb";
+option go_package = "github.com/brexhq/protos/elixir";
 
 import "google/protobuf/descriptor.proto";
 
@@ -27,6 +27,4 @@ message FileOptions {
   optional string module_prefix = 1;
 }
 
-extend google.protobuf.FileOptions {
-  optional FileOptions file = 1047;
-}
+extend google.protobuf.FileOptions { optional FileOptions file = 1047; }
