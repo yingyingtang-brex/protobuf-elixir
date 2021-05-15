@@ -11,6 +11,8 @@ syntax = "proto2";
 
 package elixirpb;
 
+option go_package = "github.com/brexhq/elixirpb";
+
 import "google/protobuf/descriptor.proto";
 
 // File level options
