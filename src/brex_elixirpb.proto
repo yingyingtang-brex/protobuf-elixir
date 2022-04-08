@@ -3,6 +3,8 @@ syntax = "proto2";
 package brex.elixirpb;
 import "google/protobuf/descriptor.proto";
 
+option go_package = "github.com/brexhq/protos";
+
 // Sample Field Option Extension
 // Defines an extension to specify the elixir type generated for the given field.
 
