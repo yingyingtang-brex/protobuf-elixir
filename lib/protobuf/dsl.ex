@@ -121,6 +121,10 @@ defmodule Protobuf.DSL do
         Protobuf.EnumOptionsProcessor.generate_mappings(module, props, fields, enum_options)
       end
 
+    num_to_atom =
+      Enum.sort_by(num_to_atom, fn {fnum, _name_atom} -> fnum end)
+      |> Enum.dedup_by(fn {fnum, _name_atom} -> fnum end)
+
     Enum.map(atom_to_num, fn {name_atom, fnum} ->
       quote do
         def value(unquote(name_atom)), do: unquote(fnum)
