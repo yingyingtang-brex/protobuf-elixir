@@ -5,7 +5,6 @@ defmodule Protobuf.Protoc.ExtTest.Foo do
   @type t :: %__MODULE__{
           a: String.t()
         }
-
   defstruct [:a]
 
   def full_name do
@@ -23,7 +22,6 @@ defmodule Protobuf.Protoc.ExtTest.Dual do
           a: String.t() | nil,
           b: Google.Protobuf.StringValue.t() | nil
         }
-
   defstruct [:a, :b]
 
   def full_name do

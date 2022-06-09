@@ -11,13 +11,9 @@ defmodule Ext.TrafficLightColor do
           | :TRAFFIC_LIGHT_COLOR_RED
 
   field :TRAFFIC_LIGHT_COLOR_INVALID, 0
-
   field :TRAFFIC_LIGHT_COLOR_UNSET, 1
-
   field :TRAFFIC_LIGHT_COLOR_GREEN, 2
-
   field :TRAFFIC_LIGHT_COLOR_YELLOW, 3
-
   field :TRAFFIC_LIGHT_COLOR_RED, 4
 end
 
@@ -28,7 +24,6 @@ defmodule Ext.Nested do
   @type t :: %__MODULE__{
           my_timestamp: {atom, any}
         }
-
   defstruct [:my_timestamp]
 
   def full_name do
@@ -69,7 +64,6 @@ defmodule Ext.MyMessage do
           color_repeated_normal: [[Ext.TrafficLightColor.t()]],
           normal3: [String.t()]
         }
-
   defstruct [
     :enums_oneof,
     :f1,
@@ -97,11 +91,6 @@ defmodule Ext.MyMessage do
 
   def full_name do
     "ext.MyMessage"
-  end
-
-  def message_options do
-    # credo:disable-for-next-line
-    Elixir.Brex.Elixirpb.MessageOptions.decode(<<8, 1>>)
   end
 
   oneof :enums_oneof, 0
