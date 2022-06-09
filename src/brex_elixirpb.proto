@@ -32,15 +32,6 @@ message EnumOptions {
   optional bool deprefix = 3;
 }
 
-message MessageOptions {
-  // Specifies if the message is an event.
-  optional bool is_event = 1;
-}
-
 extend google.protobuf.EnumOptions {
   optional EnumOptions enum = 65008;
-}
-
-extend google.protobuf.MessageOptions {
-  optional MessageOptions message = 65009;
 }

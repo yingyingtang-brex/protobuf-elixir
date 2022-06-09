@@ -258,9 +258,18 @@ defmodule Protobuf.Protoc.Generator.MessageTest do
         custom_opts
       )
 
+    message_opts =
+        Google.Protobuf.MessageOptions.put_extension(
+          Google.Protobuf.MessageOptions.new(),
+          Brex.Elixirpb.PbExtension,
+          :message,
+          Brex.Elixirpb.MessageOptions.new(is_event: true)
+        )
+
     desc =
       Google.Protobuf.DescriptorProto.new(
         name: "Foo",
+        options: message_opts,
         field: [
           Google.Protobuf.FieldDescriptorProto.new(
             name: "a",

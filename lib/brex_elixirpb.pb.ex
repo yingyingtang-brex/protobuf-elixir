@@ -6,7 +6,6 @@ defmodule Brex.Elixirpb.FieldOptions do
           extype: String.t(),
           enum: String.t()
         }
-
   defstruct [:extype, :enum]
 
   field :extype, 1, optional: true, type: :string
@@ -22,25 +21,11 @@ defmodule Brex.Elixirpb.EnumOptions do
           lowercase: boolean,
           deprefix: boolean
         }
-
   defstruct [:atomize, :lowercase, :deprefix]
 
   field :atomize, 1, optional: true, type: :bool
   field :lowercase, 2, optional: true, type: :bool
   field :deprefix, 3, optional: true, type: :bool
-end
-
-defmodule Brex.Elixirpb.MessageOptions do
-  @moduledoc false
-  use Protobuf, syntax: :proto2
-
-  @type t :: %__MODULE__{
-          is_event: boolean
-        }
-
-  defstruct [:is_event]
-
-  field :is_event, 1, optional: true, type: :bool
 end
 
 defmodule Brex.Elixirpb.PbExtension do
@@ -54,8 +39,4 @@ defmodule Brex.Elixirpb.PbExtension do
   extend Google.Protobuf.EnumOptions, :enum, 65008,
     optional: true,
     type: Brex.Elixirpb.EnumOptions
-
-  extend Google.Protobuf.MessageOptions, :message, 65009,
-    optional: true,
-    type: Brex.Elixirpb.MessageOptions
 end

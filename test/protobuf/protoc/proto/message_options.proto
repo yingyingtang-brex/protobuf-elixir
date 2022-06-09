@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+package events;
+import "google/protobuf/descriptor.proto";
+
+message MessageOptions {
+  // Specifies if the message is an event.
+  optional bool is_event = 1;
+}
+
+extend google.protobuf.MessageOptions {
+  optional MessageOptions message = 65009;
+}
