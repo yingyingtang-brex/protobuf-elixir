@@ -364,12 +364,6 @@ defmodule Protobuf.Protoc.Generator.Message do
   end
 
   defp cal_message_options(options) do
-    case Google.Protobuf.MessageOptions.get_extension(options, Brex.Elixirpb.PbExtension, :message) do
-      nil ->
-        nil
-
-      opts ->
-        opts
-    end
+    Google.Protobuf.MessageOptions.get_extension(options, Brex.Elixirpb.PbExtension, :message)
   end
 end

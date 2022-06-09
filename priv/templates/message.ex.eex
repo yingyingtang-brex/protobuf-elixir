@@ -9,7 +9,6 @@ defmodule <%= name %> do
   def full_name do
     "<%= full_name %>"
   end
-
   <%= if not is_nil(message_options) do %>
   def message_options do
     # credo:disable-for-next-line
