@@ -26,6 +26,7 @@ enum TrafficLightColor {
 }
 
 message MyMessage {
+  option (brex.elixirpb.message).is_event = true;
   google.protobuf.DoubleValue f1 = 1 [(brex.elixirpb.field).extype="float"];
   google.protobuf.FloatValue f2 = 2 [(brex.elixirpb.field).extype="float"];
   google.protobuf.Int64Value f3 = 3 [(brex.elixirpb.field).extype="integer"];

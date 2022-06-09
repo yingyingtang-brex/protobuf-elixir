@@ -9,6 +9,15 @@ defmodule <%= name %> do
   def full_name do
     "<%= full_name %>"
   end
+
+  <%= if not is_nil(message_options) do %>
+  def message_options do
+    # credo:disable-for-next-line
+    <%= message_options.__struct__ %>.decode(
+      <%= message_options.__struct__.encode(message_options |> Map.from_struct() |> Enum.filter(fn {_, x} -> x != nil end) |> message_options.__struct__.new()) |> inspect(limit: :infinity) %>
+    )
+  end
+  <% end %>
   <% end %>
 
   <%= if not is_nil(desc) do %>
