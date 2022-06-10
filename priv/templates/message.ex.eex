@@ -12,7 +12,7 @@ defmodule <%= name %> do
   <%= if message_options do %>
   def message_options do
     # credo:disable-for-next-line
-    Jason.decode!(<%= message_options %>)
+    <%= message_options %>
   end
   <% end %>
   <% end %>
