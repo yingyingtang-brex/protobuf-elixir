@@ -3,7 +3,7 @@ syntax = "proto3";
 package ext;
 
 import "brex_elixirpb.proto";
-import "brex_events_elixirpb.proto";
+import "events/brex_events_elixirpb.proto";
 import "google/protobuf/wrappers.proto";
 
 message MyEventMessage {
